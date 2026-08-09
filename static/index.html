@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Full-Stack Task Manager - Track projects, priorities, and tasks with FastAPI backend integration.">
+    <title>TaskFlow - Full-Stack Task Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Persistent Sticky Header -->
+    <header class="app-header" id="mainHeader">
+        <div class="header-content">
+            <div class="brand">
+                <div class="logo-icon">✓</div>
+                <h1>TaskFlow Pro</h1>
+            </div>
+            <div class="header-actions">
+                <div class="user-picker-group">
+                    <label for="userSelect">User:</label>
+                    <select id="userSelect" class="form-control-sm"></select>
+                    <button type="button" id="addUserBtn" class="btn-secondary-sm">+ User</button>
+                </div>
+                <div class="project-picker-group">
+                    <label for="projectSelect">Project:</label>
+                    <select id="projectSelect" class="form-control-sm"></select>
+                    <button type="button" id="addProjectBtn" class="btn-secondary-sm">+ Project</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- Notification / Error Banner -->
+        <div id="validationBanner" class="validation-banner hidden" role="alert">
+            <span class="banner-icon">⚠️</span>
+            <span id="validationMessage" class="banner-text"></span>
+            <button type="button" id="closeBannerBtn" class="close-banner">&times;</button>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Left Column: Add/Edit Task Form & Stats -->
+            <section class="sidebar-section">
+                <!-- Task Form Card -->
+                <div class="card form-card">
+                    <h2 id="formTitle">Create New Task</h2>
+                    <form id="taskForm" novalidate>
+                        <input type="hidden" id="taskIdInput" value="">
+                        
+                        <div class="form-group">
+                            <label for="taskTitleInput">Task Title <span class="required">*</span></label>
+                            <input type="text" id="taskTitleInput" class="form-control" placeholder="e.g. Review pull request for API" required>
+                            <div id="titleError" class="field-error hidden"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col">
+                                <label for="taskDueDateInput">Due Date / Phrase</label>
+                                <input type="text" id="taskDueDateInput" class="form-control" placeholder="e.g. next friday or 2026-08-15">
+                            </div>
+                            <div class="form-group col">
+                                <label for="taskPriorityInput">Priority <span class="required">*</span></label>
+                                <select id="taskPriorityInput" class="form-control">
+                                    <option value="low">Low Priority</option>
+                                    <option value="medium" selected>Medium Priority</option>
+                                    <option value="high">High Priority</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col">
+                                <label for="taskStatusInput">Status</label>
+                                <select id="taskStatusInput" class="form-control">
+                                    <option value="pending" selected>Pending</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" id="submitTaskBtn" class="btn-primary">Add Task</button>
+                            <button type="button" id="cancelEditBtn" class="btn-secondary hidden">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Project Stats Card -->
+                <div class="card stats-card" id="statsCard">
+                    <h2>Project Statistics</h2>
+                    <div id="statsContent" class="stats-content">
+                        <div class="stat-badge-grid">
+                            <div class="stat-box total">
+                                <span class="stat-number" id="statTotal">0</span>
+                                <span class="stat-label">Total Tasks</span>
+                            </div>
+                            <div class="stat-box priority-high">
+                                <span class="stat-number" id="statHigh">0</span>
+                                <span class="stat-label">High Priority</span>
+                            </div>
+                            <div class="stat-box priority-medium">
+                                <span class="stat-number" id="statMedium">0</span>
+                                <span class="stat-label">Medium</span>
+                            </div>
+                            <div class="stat-box priority-low">
+                                <span class="stat-number" id="statLow">0</span>
+                                <span class="stat-label">Low</span>
+                            </div>
+                            <div class="stat-box status-completed">
+                                <span class="stat-number" id="statCompleted">0</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                            <div class="stat-box status-pending">
+                                <span class="stat-number" id="statPending">0</span>
+                                <span class="stat-label">Pending</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Task List Container -->
+            <section class="content-section">
+                <div class="card task-list-card">
+                    <div class="task-list-header">
+                        <h2>Tasks</h2>
+                        <div class="filter-group">
+                            <label for="filterStatus">Filter:</label>
+                            <select id="filterStatus" class="form-control-sm">
+                                <option value="all">All Tasks</option>
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Cache indicator banner -->
+                    <div id="cacheNotice" class="cache-notice hidden">
+                        ⚡ Showing cached tasks. Syncing with backend...
+                    </div>
+
+                    <!-- Container for rendered task items -->
+                    <div id="taskListContainer" class="task-list-container">
+                        <!-- Task items dynamically injected via app.js -->
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Simple Modal for creating User or Project -->
+    <div id="inputModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="modalTitle">Add New Item</h3>
+            <div class="form-group">
+                <label id="modalInputLabel" for="modalInputField">Name</label>
+                <input type="text" id="modalInputField" class="form-control" placeholder="Enter name">
+                <div id="modalError" class="field-error hidden"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="modalSaveBtn" class="btn-primary">Save</button>
+                <button type="button" id="modalCancelBtn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
