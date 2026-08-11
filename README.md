@@ -97,7 +97,7 @@ Covers CRUD, validation (201/200/404/422), project stats, Quick-Add parse/create
 
 ## Deploy to Render
 
-The included `render.yaml` deploys the FastAPI service and a managed PostgreSQL database. It uses the production dependency set and probes `GET /health` before routing traffic. The database plan in the file is `basic-256mb`, which is a paid Render plan; choose a plan that fits your retention and availability needs.
+The included `render.yaml` deploys the FastAPI service and a managed PostgreSQL database. It uses the production dependency set and probes `GET /health` before routing traffic. The database plan is set to Render's free tier for a no-cost demo deployment.
 
 1. Push this repository (including `render.yaml`) to GitHub.
 2. In the Render dashboard, select **New** → **Blueprint**, connect the repository, and approve the resources shown.
