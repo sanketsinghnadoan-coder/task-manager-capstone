@@ -32,6 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelEditBtn = document.getElementById('cancelEditBtn');
     const titleError = document.getElementById('titleError');
 
+    // Quick-Add elements
+    const quickAddForm = document.getElementById('quickAddForm');
+    const quickAddInput = document.getElementById('quickAddInput');
+    const quickAddError = document.getElementById('quickAddError');
+    const parseQuickAddBtn = document.getElementById('parseQuickAddBtn');
+    const submitQuickAddBtn = document.getElementById('submitQuickAddBtn');
+    const quickAddPreview = document.getElementById('quickAddPreview');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewPriority = document.getElementById('previewPriority');
+    const previewDue = document.getElementById('previewDue');
+
     const taskListContainer = document.getElementById('taskListContainer');
     const filterStatusSelect = document.getElementById('filterStatus');
     const cacheNotice = document.getElementById('cacheNotice');
@@ -112,6 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Form submission (Add / Edit task)
         taskForm.addEventListener('submit', handleTaskFormSubmit);
 
+        // Quick-Add free-text form
+        quickAddForm.addEventListener('submit', handleQuickAddSubmit);
+        parseQuickAddBtn.addEventListener('click', handleQuickAddPreview);
+        quickAddInput.addEventListener('input', () => {
+            clearQuickAddError();
+            if (quickAddInput.value.trim() === '') {
+                hideQuickAddPreview();
+            }
+        });
+
         // Cancel Edit button
         cancelEditBtn.addEventListener('click', resetTaskForm);
 
@@ -188,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: 'demo@example.com', name: 'Demo User' })
             });
+            if (!uRes.ok) throw new Error(await getErrorMessage(uRes, 'Could not create demo user'));
             const newUser = await uRes.json();
             users.push(newUser);
             selectedUserId = newUser.id;
@@ -200,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: 'General Tasks', owner_id: newUser.id })
             });
+            if (!pRes.ok) throw new Error(await getErrorMessage(pRes, 'Could not create demo project'));
             const newProject = await pRes.json();
             projects.push(newProject);
             selectedProjectId = newProject.id;
@@ -207,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             projectSelect.value = selectedProjectId;
 
             // Create a sample task
-            await fetch(`${API_BASE}/tasks`, {
+            const taskRes = await fetch(`${API_BASE}/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -218,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: 'pending'
                 })
             });
+            if (!taskRes.ok) throw new Error(await getErrorMessage(taskRes, 'Could not create demo task'));
 
             await fetchTasks();
             await fetchProjectStats();
@@ -289,7 +313,111 @@ document.addEventListener('DOMContentLoaded', () => {
             const stats = await res.json();
             updateStatsUI(stats);
         } catch (err) {
-            console.warn('Stats fetch error:', err);
+            showBanner(`Failed to load project stats: ${err.message}`);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // QUICK-ADD (free-text parse + create)
+    // ---------------------------------------------------------
+    function showQuickAddError(msg) {
+        quickAddError.textContent = msg;
+        quickAddError.classList.remove('hidden');
+        quickAddInput.style.borderColor = 'var(--accent-rose)';
+    }
+
+    function clearQuickAddError() {
+        quickAddError.textContent = '';
+        quickAddError.classList.add('hidden');
+        quickAddInput.style.borderColor = '';
+    }
+
+    function hideQuickAddPreview() {
+        quickAddPreview.classList.add('hidden');
+        previewTitle.textContent = '';
+        previewPriority.textContent = '';
+        previewDue.textContent = '';
+    }
+
+    function showQuickAddPreview(parsed) {
+        previewTitle.textContent = parsed.title || '—';
+        previewPriority.textContent = (parsed.priority || 'medium').toUpperCase();
+        previewDue.textContent = parsed.due_date_hint || 'None';
+        quickAddPreview.classList.remove('hidden');
+    }
+
+    async function handleQuickAddPreview() {
+        const description = quickAddInput.value.trim();
+        if (!description) {
+            showQuickAddError('Enter a task description to preview.');
+            hideQuickAddPreview();
+            return;
+        }
+        clearQuickAddError();
+
+        try {
+            const res = await fetch(`${API_BASE}/tasks/parse`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                const msg = err.detail || 'Parse failed';
+                showQuickAddError(typeof msg === 'object' ? JSON.stringify(msg) : msg);
+                return;
+            }
+            const parsed = await res.json();
+            showQuickAddPreview(parsed);
+        } catch (err) {
+            showQuickAddError(`Network error: ${err.message}`);
+        }
+    }
+
+    async function handleQuickAddSubmit(e) {
+        e.preventDefault();
+
+        const description = quickAddInput.value.trim();
+        if (!description) {
+            showQuickAddError('Enter a task description (e.g. "Ship release tomorrow, urgent").');
+            return;
+        }
+        clearQuickAddError();
+
+        if (!selectedProjectId) {
+            showBanner('Please select or create a project first.');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/tasks/quick-add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description,
+                    project_id: selectedProjectId
+                })
+            });
+
+            if (!res.ok) {
+                const errorPayload = await res.json();
+                const msg = errorPayload.detail || 'Quick-Add failed';
+                showQuickAddError(typeof msg === 'object' ? JSON.stringify(msg) : msg);
+                return;
+            }
+
+            const created = await res.json();
+            showQuickAddPreview({
+                title: created.title,
+                priority: created.priority,
+                due_date_hint: created.due_date
+            });
+
+            quickAddInput.value = '';
+            await fetchTasks();
+            await fetchProjectStats();
+        } catch (err) {
+            showQuickAddError(`Network error: ${err.message}`);
         }
     }
 
@@ -650,6 +778,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function showBanner(msg) {
         validationMessage.textContent = msg;
         validationBanner.classList.remove('hidden');
+    }
+
+    async function getErrorMessage(response, fallback) {
+        try {
+            const payload = await response.json();
+            if (typeof payload.detail === 'string') return payload.detail;
+            if (payload.detail) return JSON.stringify(payload.detail);
+        } catch (_) {
+            // A proxy or server may return an empty/non-JSON error response.
+        }
+        return fallback;
     }
 
     function hideBanner() {

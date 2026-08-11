@@ -1,9 +1,69 @@
 import unittest
+
 from fastapi.testclient import TestClient
+
 from main import app
-import os
+from task_parser import parse_task_description
 
 client = TestClient(app)
+
+
+class TestTaskParser(unittest.TestCase):
+    """Unit tests for the Quick-Add free-text parser (deterministic rules)."""
+
+    def test_canonical_example(self):
+        result = parse_task_description("Finish the report next Friday, it's urgent")
+        self.assertEqual(result["title"], "Finish the report")
+        self.assertEqual(result["priority"], "high")
+        self.assertEqual(result["due_date_hint"], "next friday")
+
+    def test_asap_high_priority(self):
+        result = parse_task_description("Deploy hotfix ASAP")
+        self.assertEqual(result["priority"], "high")
+        self.assertIn("Deploy hotfix", result["title"])
+
+    def test_low_priority_whenever(self):
+        result = parse_task_description("Clean desk whenever")
+        self.assertEqual(result["priority"], "low")
+        self.assertEqual(result["due_date_hint"], None)
+
+    def test_low_priority_phrase(self):
+        result = parse_task_description("Organize files low priority")
+        self.assertEqual(result["priority"], "low")
+
+    def test_high_wins_over_low(self):
+        result = parse_task_description("Do this whenever but urgent")
+        self.assertEqual(result["priority"], "high")
+
+    def test_default_medium(self):
+        result = parse_task_description("Write unit tests")
+        self.assertEqual(result["priority"], "medium")
+        self.assertEqual(result["title"], "Write unit tests")
+        self.assertIsNone(result["due_date_hint"])
+
+    def test_relative_dates_precedence(self):
+        self.assertEqual(
+            parse_task_description("Ship today")["due_date_hint"], "today"
+        )
+        self.assertEqual(
+            parse_task_description("Ship tomorrow")["due_date_hint"], "tomorrow"
+        )
+        self.assertEqual(
+            parse_task_description("Plan next week")["due_date_hint"], "next week"
+        )
+
+    def test_next_weekday_before_bare(self):
+        result = parse_task_description("Meet next monday about roadmap")
+        self.assertEqual(result["due_date_hint"], "next monday")
+
+    def test_bare_weekday(self):
+        result = parse_task_description("Call client friday")
+        self.assertEqual(result["due_date_hint"], "friday")
+
+    def test_empty_after_cleanup(self):
+        result = parse_task_description("urgent")
+        self.assertEqual(result["title"], "Untitled task")
+        self.assertEqual(result["priority"], "high")
 
 
 class TestTaskManagerAPI(unittest.TestCase):
@@ -50,6 +110,10 @@ class TestTaskManagerAPI(unittest.TestCase):
         # Non-existent user -> 404
         res = client.post("/projects", json={"name": "Invalid Project", "owner_id": 999999})
         self.assertEqual(res.status_code, 404)
+
+        # Malformed email is rejected before a database write.
+        res = client.post("/users", json={"email": "not-an-email"})
+        self.assertEqual(res.status_code, 422)
 
     def test_02_task_creation_and_validation(self):
         # Valid task creation (201 Created)
@@ -158,6 +222,57 @@ class TestTaskManagerAPI(unittest.TestCase):
         # Stats for unknown project -> 404 Not Found
         res_404 = client.get("/projects/999999/stats")
         self.assertEqual(res_404.status_code, 404)
+
+    def test_05_quick_add_parse_endpoint(self):
+        res = client.post("/tasks/parse", json={
+            "description": "Finish the report next Friday, it's urgent"
+        })
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["title"], "Finish the report")
+        self.assertEqual(data["priority"], "high")
+        self.assertEqual(data["due_date_hint"], "next friday")
+
+        # Blank description -> 422
+        blank = client.post("/tasks/parse", json={"description": "   "})
+        self.assertEqual(blank.status_code, 422)
+
+    def test_06_quick_add_create_endpoint(self):
+        res = client.post("/tasks/quick-add", json={
+            "description": "Finish the report next Friday, it's urgent",
+            "project_id": self.project1_id,
+        })
+        self.assertEqual(res.status_code, 201)
+        data = res.json()
+        self.assertEqual(data["title"], "Finish the report")
+        self.assertEqual(data["priority"], "high")
+        self.assertEqual(data["due_date"], "next friday")
+        self.assertEqual(data["status"], "pending")
+        self.assertEqual(data["project_id"], self.project1_id)
+
+        # Unknown project -> 404
+        bad = client.post("/tasks/quick-add", json={
+            "description": "Something tomorrow",
+            "project_id": 999999,
+        })
+        self.assertEqual(bad.status_code, 404)
+
+    def test_07_frontend_served(self):
+        res = client.get("/")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/html", res.headers.get("content-type", ""))
+        self.assertIn(b"TaskFlow", res.content)
+        self.assertIn(b"Quick-Add", res.content)
+
+        css = client.get("/static/styles.css")
+        self.assertEqual(css.status_code, 200)
+
+        js = client.get("/static/app.js")
+        self.assertEqual(js.status_code, 200)
+
+        health = client.get("/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json(), {"status": "ok"})
 
 
 if __name__ == "__main__":

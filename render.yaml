@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: taskflow-pro
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: taskflow-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.12.8
+
+databases:
+  - name: taskflow-db
+    plan: basic-256mb
+    databaseName: taskflow
+    user: taskflow

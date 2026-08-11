@@ -206,6 +206,63 @@ body {
 }
 
 /* ---------------------------------------------------------
+   QUICK-ADD CARD
+   --------------------------------------------------------- */
+.quick-add-card {
+    border-color: rgba(99, 102, 241, 0.35);
+    background: linear-gradient(
+        160deg,
+        rgba(99, 102, 241, 0.12) 0%,
+        var(--bg-card) 45%
+    );
+}
+
+.quick-add-hint {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: -8px 0 14px;
+    line-height: 1.4;
+}
+
+.quick-add-preview {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.quick-add-preview.hidden {
+    display: none;
+}
+
+.preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+.preview-label {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.preview-value {
+    color: var(--text-primary);
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+}
+
+/* ---------------------------------------------------------
    FORM CONTROLS & STYLES
    --------------------------------------------------------- */
 .form-group {

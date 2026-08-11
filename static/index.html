@@ -44,6 +44,39 @@
         <div class="dashboard-grid">
             <!-- Left Column: Add/Edit Task Form & Stats -->
             <section class="sidebar-section">
+                <!-- Quick-Add Card (free-text → structured task) -->
+                <div class="card quick-add-card">
+                    <h2>⚡ Quick-Add</h2>
+                    <p class="quick-add-hint">Type naturally — priority and due dates are parsed automatically.</p>
+                    <form id="quickAddForm" novalidate>
+                        <div class="form-group">
+                            <label for="quickAddInput">Describe your task</label>
+                            <input type="text" id="quickAddInput" class="form-control"
+                                   placeholder='e.g. Finish the report next Friday, it&apos;s urgent'
+                                   autocomplete="off">
+                            <div id="quickAddError" class="field-error hidden"></div>
+                        </div>
+                        <div id="quickAddPreview" class="quick-add-preview hidden" aria-live="polite">
+                            <div class="preview-row">
+                                <span class="preview-label">Title</span>
+                                <span id="previewTitle" class="preview-value"></span>
+                            </div>
+                            <div class="preview-row">
+                                <span class="preview-label">Priority</span>
+                                <span id="previewPriority" class="preview-value"></span>
+                            </div>
+                            <div class="preview-row">
+                                <span class="preview-label">Due</span>
+                                <span id="previewDue" class="preview-value"></span>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="parseQuickAddBtn" class="btn-secondary">Preview</button>
+                            <button type="submit" id="submitQuickAddBtn" class="btn-primary">Quick Add</button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Task Form Card -->
                 <div class="card form-card">
                     <h2 id="formTitle">Create New Task</h2>
