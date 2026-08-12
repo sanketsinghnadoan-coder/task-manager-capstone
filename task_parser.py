@@ -17,9 +17,11 @@ class ParsedTask(TypedDict):
     due_date_hint: Optional[str]
 
 
-# Priority keyword sets (case-insensitive substring match)
-HIGH_PRIORITY_KEYWORDS = ("urgent", "asap")
-LOW_PRIORITY_KEYWORDS = ("whenever", "low priority")
+# Priority keywords required by the Quick-Add specification.  They are matched
+# as whole words/phrases so, for example, "backlogging" does not mean low
+# priority.
+HIGH_PRIORITY_KEYWORDS = ("urgent", "asap", "stat", "critical", "immediately")
+LOW_PRIORITY_KEYWORDS = ("whenever", "low priority", "no rush", "backlog")
 
 # Due-date phrases in explicit order of precedence (first match wins).
 # Longer / more specific phrases must appear before bare weekdays.
@@ -49,8 +51,8 @@ DUE_DATE_PHRASES: tuple[str, ...] = (
 
 def _extract_priority(text_lower: str) -> str:
     """Extract priority from free text using keyword rules."""
-    has_high = any(kw in text_lower for kw in HIGH_PRIORITY_KEYWORDS)
-    has_low = any(kw in text_lower for kw in LOW_PRIORITY_KEYWORDS)
+    has_high = any(_contains_phrase(text_lower, kw) for kw in HIGH_PRIORITY_KEYWORDS)
+    has_low = any(_contains_phrase(text_lower, kw) for kw in LOW_PRIORITY_KEYWORDS)
 
     # If both high and low keywords exist, high wins
     if has_high:
@@ -66,15 +68,20 @@ def _extract_due_date_hint(text_lower: str) -> Optional[str]:
     Returns the first matched phrase in lowercase, or None.
     """
     for phrase in DUE_DATE_PHRASES:
-        if phrase in text_lower:
+        if _contains_phrase(text_lower, phrase):
             return phrase
     return None
 
 
 def _remove_phrase_ci(text: str, phrase: str) -> str:
     """Remove the first case-insensitive occurrence of phrase from text."""
-    pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+    pattern = re.compile(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", re.IGNORECASE)
     return pattern.sub("", text, count=1)
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Return whether a complete word or phrase occurs in ``text``."""
+    return bool(re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", text))
 
 
 def _clean_title(original: str, priority: str, due_date_hint: Optional[str]) -> str:
@@ -92,11 +99,11 @@ def _clean_title(original: str, priority: str, due_date_hint: Optional[str]) -> 
     text_lower = original.lower()
     if priority == "high":
         for kw in HIGH_PRIORITY_KEYWORDS:
-            if kw in text_lower:
+            if _contains_phrase(text_lower, kw):
                 title = _remove_phrase_ci(title, kw)
     elif priority == "low":
         for kw in LOW_PRIORITY_KEYWORDS:
-            if kw in text_lower:
+            if _contains_phrase(text_lower, kw):
                 title = _remove_phrase_ci(title, kw)
 
     # Collapse whitespace
@@ -111,6 +118,7 @@ def _clean_title(original: str, priority: str, due_date_hint: Optional[str]) -> 
         flags=re.IGNORECASE,
     )
     title = re.sub(r"\b(it's|it is)\s*$", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\b(by|on|at|for)\s*$", "", title, flags=re.IGNORECASE)
     title = re.sub(r"\s+", " ", title).strip()
 
     # Strip leading/trailing non-word characters (dangling punctuation)

@@ -22,6 +22,13 @@ class TestTaskParser(unittest.TestCase):
         self.assertEqual(result["priority"], "high")
         self.assertIn("Deploy hotfix", result["title"])
 
+    def test_all_high_priority_keywords_are_detected_and_removed(self):
+        for keyword in ("urgent", "ASAP", "stat", "critical", "immediately"):
+            with self.subTest(keyword=keyword):
+                result = parse_task_description(f"Fix production issue {keyword}")
+                self.assertEqual(result["priority"], "high")
+                self.assertEqual(result["title"], "Fix production issue")
+
     def test_low_priority_whenever(self):
         result = parse_task_description("Clean desk whenever")
         self.assertEqual(result["priority"], "low")
@@ -31,9 +38,21 @@ class TestTaskParser(unittest.TestCase):
         result = parse_task_description("Organize files low priority")
         self.assertEqual(result["priority"], "low")
 
+    def test_all_low_priority_keywords_are_detected_and_removed(self):
+        for keyword in ("whenever", "low priority", "no rush", "backlog"):
+            with self.subTest(keyword=keyword):
+                result = parse_task_description(f"Organize files {keyword}")
+                self.assertEqual(result["priority"], "low")
+                self.assertEqual(result["title"], "Organize files")
+
     def test_high_wins_over_low(self):
         result = parse_task_description("Do this whenever but urgent")
         self.assertEqual(result["priority"], "high")
+
+    def test_date_connector_is_removed_from_title(self):
+        result = parse_task_description("Finish the report by next Friday")
+        self.assertEqual(result["title"], "Finish the report")
+        self.assertEqual(result["due_date_hint"], "next friday")
 
     def test_default_medium(self):
         result = parse_task_description("Write unit tests")
